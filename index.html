@@ -522,11 +522,11 @@ function showMsg(id, text, type) {
 }
 
 async function doCheckout() {
-  const name = document.getElementById('co-name').value.trim();
-  const equip = document.getElementById('co-equip').value.trim();
+  const name = document.getElementById('co-name').value.trim().toLowerCase();
+  const equip = document.getElementById('co-equip').value.trim().toLowerCase();
   const qty = document.getElementById('co-qty').value;
   const returnDate = document.getElementById('co-return').value;
-  const notes = document.getElementById('co-notes').value.trim();
+  const notes = document.getElementById('co-notes').value.trim().toLowerCase();
 
   if(!name || !equip || !returnDate) {
     showMsg('co-msg', 'Please complete all required fields.', 'error');
@@ -569,10 +569,11 @@ const remarksEl = document.getElementById('ret-remarks');
 
 console.log(nameEl, equipEl, conditionEl, remarksEl);
 
-const name = nameEl ? nameEl.value.trim() : '';
-const equip = equipEl ? equipEl.value.trim() : '';
+const name = nameEl ? nameEl.value.trim().toLowerCase() : '';
+const equip = equipEl ? equipEl.value.trim().toLowerCase() : '';
 const condition = conditionEl ? conditionEl.value : 'Good';
-const remarks = remarksEl ? remarksEl.value.trim() : '';
+const remarks = remarksEl ? remarksEl.value.trim().toLowerCase()
+  : '';
 
   if (!name || !equip) {
     showMsg('ret-msg', 'Please complete required fields.', 'error');

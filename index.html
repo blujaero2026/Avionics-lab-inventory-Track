@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -491,6 +492,13 @@ th {
 </div>
 
 <script>
+  const SUPABASE_URL = 'https://mjlehoqvstmajhtdzfpx.supabase.co/rest/v1/';
+const SUPABASE_KEY = 'sb_publishable_80lotbpTDm6fSESJ5ipYrQ_AAzhrqAk';
+
+const supabaseClient = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 const KEY = 'bluj_lab_v3';
 const ADMIN_PASSWORD = 'bluj12';
 

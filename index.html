@@ -618,10 +618,15 @@ const remarks = remarksEl ? remarksEl.value.trim() : '';
   }
 
   // Clear form
-  document.getElementById('ret-name').value = '';
-  document.getElementById('ret-equip').value = '';
-  document.getElementById('ret-condition').value = 'Good';
-  document.getElementById('ret-remarks').value = '';
+ const retName = document.getElementById('ret-name');
+const retEquip = document.getElementById('ret-equip');
+const retCondition = document.getElementById('ret-condition');
+const retRemarks = document.getElementById('ret-remarks');
+
+if (retName) retName.value = '';
+if (retEquip) retEquip.value = '';
+if (retCondition) retCondition.value = 'Good';
+if (retRemarks) retRemarks.value = '';
 
   // Refresh admin log if open
   if (typeof renderLog === 'function') {

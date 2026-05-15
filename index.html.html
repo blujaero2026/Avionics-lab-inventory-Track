@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bluj Aerospace — Lab Inventory Tracker</title>
+<style>
+body {
+  background: linear-gradient(135deg, #dfefff 0%, #eefaf4 35%, #fff2e8 100%);
+  background-size: 300% 300%;
+  animation: gradientFlow 12s ease infinite;
+  animation: fadeIn 0.8s ease;
+}
+
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0px);
+  }
+}
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #f5f4f0;
+  --surface: #ffffff;
+  --border: #e2e0d8;
+  --text: #1a1916;
+  --muted: #7a7870;
+  --green: #1a6b4a;
+  --green-bg: #e8f5ef;
+  --red: #b53a2a;
+  --red-bg: #fdf0ee;
+  --blue: #1a4a7a;
+  --blue-bg: #e8f0fa;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+header {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  background: #111;
+  color: white;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.logo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #39d98a;
+}
+
+.header-sub {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  font-family: 'DM Mono', monospace;
+}
+
+.container {
+  max-width: 880px;
+  margin: auto;
+  padding: 2rem 1rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 1.5rem;
+}
+
+.tab {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.tab {
+  transition: all 0.25s ease;
+}
+
+.tab:hover {
+  background: rgba(26,107,74,0.08);
+  color: var(--green);
+}
+
+.tab.active {
+  background: #111;
+  color: white;
+}
+
+.section {
+  display: none;
+}
+
+.section.active {
+  display: block;
+}
+
+.card {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.1);
+}
+
+.card-title {
+  font-size: 14px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+label {
+  display: block;
+  margin-top: 14px;
+  margin-bottom: 5px;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+input, select {
+  transition: all 0.2s ease;
+
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 14px;
+}
+
+.row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.btn {
+  width: 100%;
+  margin-top: 1.2rem;
+  padding: 13px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.btn-green {
+  background: linear-gradient(135deg,#1a6b4a,#2c9b68);
+  box-shadow: 0 6px 18px rgba(26,107,74,0.25);
+
+  background: var(--green);
+  color: white;
+}
+
+.btn-dark {
+  background: linear-gradient(135deg,#111,#333);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+
+  background: #111;
+  color: white;
+}
+
+.msg {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  display: none;
+  font-size: 13px;
+}
+
+.msg.success {
+  display: block;
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.msg.error {
+  display: block;
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.info-box {
+  box-shadow: 0 4px 14px rgba(26,74,122,0.08);
+
+  background: var(--blue-bg);
+  color: var(--blue);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 1rem;
+  font-size: 13px;
+}
+
+.admin-box {
+  margin-bottom: 1rem;
+  background: #fff8e7;
+  border: 1px solid #f0dca5;
+  color: #7a5800;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
+.stat {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.stat-num {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.stat-lbl {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th, td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+th {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-out {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+
+.badge-ret {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.hidden {
+  display: none;
+}
+
+@media(max-width:700px){
+  .row2 {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Bluj Aerospace — Lab Inventory
+  </div>
+  <div class="header-sub">Admin Controlled Register</div>
+</header>
+
+<div class="container">
+
+  <div class="tabs">
+    <button type="button" class="tab active" id="tab-checkout">Check Out</button>
+    <button type="button" class="tab" id="tab-return">Return</button>
+    <button type="button" class="tab" id="tab-admin">Admin Log</button>
+  </div>
+
+  <!-- CHECKOUT SECTION -->
+  <div id="checkout" class="section active">
+    <div class="info-box">
+      Only checkout and return forms are visible to normal users. Complete log data is protected inside Admin Log.
+    </div>
+
+    <div class="card">
+      <div class="card-title">Equipment Checkout</div>
+
+      <label>Your Full Name</label>
+      <input type="text" id="co-name" placeholder="e.g. Employee Name">
+
+      <div class="row2">
+        <div>
+          <label>Equipment / Component</label>
+          <input type="text" id="co-equip" placeholder="e.g. Oscilloscope">
+        </div>
+
+        <div>
+          <label>Quantity</label>
+          <input type="number" id="co-qty" value="1" min="1">
+        </div>
+      </div>
+
+      <div class="row2">
+        <div>
+          <label>Expected Return Date</label>
+          <input type="date" id="co-return">
+        </div>
+
+        <div>
+          <label>Purpose / Notes</label>
+          <input type="text" id="co-notes" placeholder="e.g. UAV electronics testing">
+        </div>
+      </div>
+
+      <button class="btn btn-green" onclick="doCheckout()">✓ Check Out Equipment</button>
+      <div id="co-msg" class="msg"></div>
+    </div>
+  </div>
+
+  <!-- RETURN SECTION -->
+  <div id="return" class="section">
+    <div class="card">
+      <div class="card-title">Return Equipment</div>
+
+      <div class="row2">
+        <div>
+          <label>Your Name</label>
+          <input type="text" id="ret-name" placeholder="e.g. Employee Name">
+        </div>
+
+        <div>
+          <label>Equipment Name</label>
+          <input type="text" id="ret-equip" placeholder="e.g. Oscilloscope">
+        </div>
+      </div>
+
+      <div class="row2">
+        <div>
+          <label>Condition</label>
+          <select id="ret-cond">
+            <option>Good</option>
+            <option>Fair</option>
+            <option>Damaged</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Remarks</label>
+          <input type="text" id="ret-remarks" placeholder="Optional remarks">
+        </div>
+      </div>
+
+      <button class="btn btn-dark" onclick="doReturn()">↩ Mark Returned</button>
+      <div id="ret-msg" class="msg"></div>
+    </div>
+  </div>
+
+  <!-- ADMIN SECTION -->
+  <div id="admin" class="section">
+
+    <div id="admin-login">
+      <div class="admin-box">
+        Admin log is protected and accessible only to authorized lab administrators.
+      </div>
+
+      <div class="card">
+        <div class="card-title">Admin Access</div>
+
+        <label>Admin Password</label>
+        <input type="password" id="admin-pass" placeholder="Enter admin password">
+
+        <button class="btn btn-dark" onclick="adminLogin()">Open Admin Log</button>
+        <div id="admin-msg" class="msg"></div>
+      </div>
+    </div>
+
+    <div id="admin-panel" class="hidden">
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-num" id="s-total">0</div>
+          <div class="stat-lbl">Total</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-num" id="s-out">0</div>
+          <div class="stat-lbl">Out</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-num" id="s-ret">0</div>
+          <div class="stat-lbl">Returned</div>
+        </div>
+      </div>
+
+      <button class="btn btn-green" onclick="exportCSV()" style="margin-bottom:1rem;max-width:220px;">
+        ⬇ Export CSV
+      </button>
+
+      <div class="card table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Equipment</th>
+              <th>Qty</th>
+              <th>Status</th>
+              <th>Checkout</th>
+              <th>Return Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="log-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY = 'bluj_lab_v3';
+const ADMIN_PASSWORD = 'bluj12';
+
+function load() {
+  return JSON.parse(localStorage.getItem(KEY) || '[]');
+}
+
+function save(data) {
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + type;
+
+  setTimeout(() => {
+    el.className = 'msg';
+  }, 3000);
+}
+
+function doCheckout() {
+  const name = document.getElementById('co-name').value.trim();
+  const equip = document.getElementById('co-equip').value.trim();
+  const qty = document.getElementById('co-qty').value;
+  const returnDate = document.getElementById('co-return').value;
+  const notes = document.getElementById('co-notes').value.trim();
+
+  if(!name || !equip || !returnDate) {
+    showMsg('co-msg', 'Please complete all required fields.', 'error');
+    return;
+  }
+
+  const data = load();
+
+  data.push({
+    id: Date.now(),
+    name,
+    equip,
+    qty,
+    notes,
+    checkoutDate: new Date().toLocaleString(),
+    returnDate,
+    status: 'OUT'
+  });
+
+  save(data);
+
+  document.getElementById('co-name').value = '';
+  document.getElementById('co-equip').value = '';
+  document.getElementById('co-notes').value = '';
+  document.getElementById('co-qty').value = 1;
+  document.getElementById('co-return').value = '';
+
+  showMsg('co-msg', 'Equipment checked out successfully.', 'success');
+}
+
+function doReturn() {
+  const name = document.getElementById('ret-name').value.toLowerCase().trim();
+  const equip = document.getElementById('ret-equip').value.toLowerCase().trim();
+
+  const data = load();
+
+  const item = data.find(r =>
+    r.name.toLowerCase().includes(name) &&
+    r.equip.toLowerCase().includes(equip) &&
+    r.status === 'OUT'
+  );
+
+  if(!item) {
+    showMsg('ret-msg', 'No matching active checkout found.', 'error');
+    return;
+  }
+
+  item.status = 'RETURNED';
+  save(data);
+
+  showMsg('ret-msg', 'Equipment marked as returned.', 'success');
+}
+
+function adminLogin() {
+  const pass = document.getElementById('admin-pass').value;
+
+  if(pass !== ADMIN_PASSWORD) {
+    showMsg('admin-msg', 'Incorrect password.', 'error');
+    return;
+  }
+
+  document.getElementById('admin-login').classList.add('hidden');
+  document.getElementById('admin-panel').classList.remove('hidden');
+
+  renderLog();
+}
+
+function deleteEntry(id) {
+  if(!confirm('Delete this entry permanently?')) return;
+
+  const data = load().filter(r => r.id !== id);
+  save(data);
+  renderLog();
+}
+
+function exportCSV() {
+  const data = load();
+
+  const headers = ['Name','Equipment','Qty','Status','Checkout Date','Return Date'];
+
+  const rows = data.map(r => [
+    r.name,
+    r.equip,
+    r.qty,
+    r.status,
+    r.checkoutDate,
+    r.returnDate
+  ].join(','));
+
+  const csv = [headers.join(','), ...rows].join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'Bluj_Inventory_Log.csv';
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+function renderLog() {
+  const data = load().reverse();
+  const body = document.getElementById('log-body');
+
+  document.getElementById('s-total').textContent = data.length;
+  document.getElementById('s-out').textContent = data.filter(d => d.status === 'OUT').length;
+  document.getElementById('s-ret').textContent = data.filter(d => d.status === 'RETURNED').length;
+
+  body.innerHTML = '';
+
+  data.forEach(r => {
+    const badge = r.status === 'OUT'
+      ? '<span class="badge badge-out">OUT</span>'
+      : '<span class="badge badge-ret">RETURNED</span>';
+
+    body.innerHTML += `
+      <tr>
+        <td>${r.name}</td>
+        <td>${r.equip}</td>
+        <td>${r.qty}</td>
+        <td>${badge}</td>
+        <td>${r.checkoutDate}</td>
+        <td>${r.returnDate}</td>
+        <td>
+          <button onclick="deleteEntry(${r.id})" style="background:#ffe9e9;color:#b53a2a;border:none;padding:7px 12px;border-radius:8px;cursor:pointer;font-weight:600;">
+            Delete
+          </button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+window.onload = function() {
+  const sections = document.querySelectorAll('.section');
+  const tabs = document.querySelectorAll('.tab');
+
+  function openTab(id) {
+    sections.forEach(sec => sec.classList.remove('active'));
+    tabs.forEach(tab => tab.classList.remove('active'));
+
+    document.getElementById(id).classList.add('active');
+    document.getElementById('tab-' + id).classList.add('active');
+  }
+
+  document.getElementById('tab-checkout').onclick = () => openTab('checkout');
+  document.getElementById('tab-return').onclick = () => openTab('return');
+  document.getElementById('tab-admin').onclick = () => openTab('admin');
+};
+</script>
+</body>
+</html>

@@ -534,18 +534,34 @@ function doCheckout() {
 
   const data = load();
 
-  data.push({
-    id: Date.now(),
-    name,
-    equip,
-    qty,
-    notes,
-    checkoutDate: new Date().toLocaleString(),
-    returnDate,
-    status: 'OUT'
-  });
+supabaseClient
+  .from('inventory_logs')
+  .insert([
+    {
+      employee: name,
+      equipment: equip,
+      qty: parseInt(qty),
+      return_date: returnDate,
+      notes: notes,
+      status: 'OUT'
+    }
+  ])
+  .then(({ error }) => {
 
-  save(data);
+    if (error) {
+      console.error(error);
+      showMsg('co-msg', 'Cloud save failed.', 'error');
+      return;
+    }
+
+    document.getElementById('co-name').value = '';
+    document.getElementById('co-equip').value = '';
+    document.getElementById('co-notes').value = '';
+    document.getElementById('co-qty').value = 1;
+    document.getElementById('co-return').value = '';
+
+    showMsg('co-msg', 'Equipment checked out successfully.', 'success');
+  });
 
   document.getElementById('co-name').value = '';
   document.getElementById('co-equip').value = '';

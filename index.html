@@ -561,8 +561,68 @@ async function doCheckout() {
   showMsg('co-msg', 'Equipment checked out successfully.', 'success');
 }
 
-function doReturn() {
-  showMsg('ret-msg', 'Return module will be connected to cloud database next.', 'success');
+async function doReturn() {
+
+  const name = document.getElementById('ret-name').value.trim();
+  const equip = document.getElementById('ret-equip').value.trim();
+  const condition = document.getElementById('ret-condition').value;
+  const remarks = document.getElementById('ret-remarks').value.trim();
+
+  if (!name || !equip) {
+    showMsg('ret-msg', 'Please complete required fields.', 'error');
+    return;
+  }
+
+  // Find latest OUT entry
+  const { data, error } = await supabaseClient
+    .from('inventory_logs')
+    .select('*')
+    .eq('employee', name)
+    .eq('equipment', equip)
+    .eq('status', 'OUT')
+    .order('id', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error(error);
+    showMsg('ret-msg', 'Database search failed.', 'error');
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    showMsg('ret-msg', 'No matching checked-out equipment found.', 'error');
+    return;
+  }
+
+  const recordId = data[0].id;
+
+  // Update record
+  const { error: updateError } = await supabaseClient
+    .from('inventory_logs')
+    .update({
+      status: 'RETURNED',
+      notes: remarks || data[0].notes + ' | Returned Condition: ' + condition
+    })
+    .eq('id', recordId);
+
+  if (updateError) {
+    console.error(updateError);
+    showMsg('ret-msg', 'Return update failed.', 'error');
+    return;
+  }
+
+  // Clear form
+  document.getElementById('ret-name').value = '';
+  document.getElementById('ret-equip').value = '';
+  document.getElementById('ret-condition').value = 'Good';
+  document.getElementById('ret-remarks').value = '';
+
+  // Refresh admin log if open
+  if (typeof renderLog === 'function') {
+    renderLog();
+  }
+
+  showMsg('ret-msg', 'Equipment marked as RETURNED.', 'success');
 }
 
 function adminLogin() {

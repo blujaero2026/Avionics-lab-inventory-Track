@@ -562,11 +562,17 @@ async function doCheckout() {
 }
 
 async function doReturn() {
+const nameEl = document.getElementById('ret-name');
+const equipEl = document.getElementById('ret-equip');
+const conditionEl = document.getElementById('ret-condition');
+const remarksEl = document.getElementById('ret-remarks');
 
-  const name = document.getElementById('ret-name').value.trim();
-  const equip = document.getElementById('ret-equip').value.trim();
-  const condition = document.getElementById('ret-condition').value;
-  const remarks = document.getElementById('ret-remarks').value.trim();
+console.log(nameEl, equipEl, conditionEl, remarksEl);
+
+const name = nameEl ? nameEl.value.trim() : '';
+const equip = equipEl ? equipEl.value.trim() : '';
+const condition = conditionEl ? conditionEl.value : 'Good';
+const remarks = remarksEl ? remarksEl.value.trim() : '';
 
   if (!name || !equip) {
     showMsg('ret-msg', 'Please complete required fields.', 'error');

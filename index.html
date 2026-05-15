@@ -490,15 +490,16 @@ th {
     </div>
   </div>
 </div>
-
+  
 <script>
-  const SUPABASE_URL = 'https://mjlehoqvstmajhtdzfpx.supabase.co/rest/v1/';
+const SUPABASE_URL = 'https://mjlehoqvstmajhtdzfpx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_80lotbpTDm6fSESJ5ipYrQ_AAzhrqAk';
 
 const supabaseClient = supabase.createClient(
   SUPABASE_URL,
   SUPABASE_KEY
 );
+
 const KEY = 'bluj_lab_v3';
 const ADMIN_PASSWORD = 'bluj12';
 
@@ -520,7 +521,7 @@ function showMsg(id, text, type) {
   }, 3000);
 }
 
-function doCheckout() {
+async function doCheckout() {
   const name = document.getElementById('co-name').value.trim();
   const equip = document.getElementById('co-equip').value.trim();
   const qty = document.getElementById('co-qty').value;
@@ -532,36 +533,24 @@ function doCheckout() {
     return;
   }
 
-  const data = load();
+  const { error } = await supabaseClient
+    .from('inventory_logs')
+    .insert([
+      {
+        employee: name,
+        equipment: equip,
+        qty: parseInt(qty),
+        return_date: returnDate,
+        notes: notes,
+        status: 'OUT'
+      }
+    ]);
 
-supabaseClient
-  .from('inventory_logs')
-  .insert([
-    {
-      employee: name,
-      equipment: equip,
-      qty: parseInt(qty),
-      return_date: returnDate,
-      notes: notes,
-      status: 'OUT'
-    }
-  ])
-  .then(({ error }) => {
-
-    if (error) {
-      console.error(error);
-      showMsg('co-msg', 'Cloud save failed.', 'error');
-      return;
-    }
-
-    document.getElementById('co-name').value = '';
-    document.getElementById('co-equip').value = '';
-    document.getElementById('co-notes').value = '';
-    document.getElementById('co-qty').value = 1;
-    document.getElementById('co-return').value = '';
-
-    showMsg('co-msg', 'Equipment checked out successfully.', 'success');
-  });
+  if (error) {
+    console.error(error);
+    showMsg('co-msg', 'Cloud save failed.', 'error');
+    return;
+  }
 
   document.getElementById('co-name').value = '';
   document.getElementById('co-equip').value = '';
@@ -573,26 +562,7 @@ supabaseClient
 }
 
 function doReturn() {
-  const name = document.getElementById('ret-name').value.toLowerCase().trim();
-  const equip = document.getElementById('ret-equip').value.toLowerCase().trim();
-
-  const data = load();
-
-  const item = data.find(r =>
-    r.name.toLowerCase().includes(name) &&
-    r.equip.toLowerCase().includes(equip) &&
-    r.status === 'OUT'
-  );
-
-  if(!item) {
-    showMsg('ret-msg', 'No matching active checkout found.', 'error');
-    return;
-  }
-
-  item.status = 'RETURNED';
-  save(data);
-
-  showMsg('ret-msg', 'Equipment marked as returned.', 'success');
+  showMsg('ret-msg', 'Return module will be connected to cloud database next.', 'success');
 }
 
 function adminLogin() {
@@ -609,26 +579,41 @@ function adminLogin() {
   renderLog();
 }
 
-function deleteEntry(id) {
+async function deleteEntry(id) {
   if(!confirm('Delete this entry permanently?')) return;
 
-  const data = load().filter(r => r.id !== id);
-  save(data);
+  const { error } = await supabaseClient
+    .from('inventory_logs')
+    .delete()
+    .eq('id', id);
+
+  if(error){
+    console.error(error);
+    return;
+  }
+
   renderLog();
 }
 
-function exportCSV() {
-  const data = load();
+async function exportCSV() {
+  const { data, error } = await supabaseClient
+    .from('inventory_logs')
+    .select('*')
+    .order('id', { ascending: false });
 
-  const headers = ['Name','Equipment','Qty','Status','Checkout Date','Return Date'];
+  if(error){
+    console.error(error);
+    return;
+  }
+
+  const headers = ['Employee','Equipment','Qty','Status','Return Date'];
 
   const rows = data.map(r => [
-    r.name,
-    r.equip,
+    r.employee,
+    r.equipment,
     r.qty,
     r.status,
-    r.checkoutDate,
-    r.returnDate
+    r.return_date
   ].join(','));
 
   const csv = [headers.join(','), ...rows].join('\n');
@@ -644,8 +629,17 @@ function exportCSV() {
   URL.revokeObjectURL(url);
 }
 
-function renderLog() {
-  const data = load().reverse();
+async function renderLog() {
+  const { data, error } = await supabaseClient
+    .from('inventory_logs')
+    .select('*')
+    .order('id', { ascending: false });
+
+  if(error){
+    console.error(error);
+    return;
+  }
+
   const body = document.getElementById('log-body');
 
   document.getElementById('s-total').textContent = data.length;
@@ -661,12 +655,12 @@ function renderLog() {
 
     body.innerHTML += `
       <tr>
-        <td>${r.name}</td>
-        <td>${r.equip}</td>
+        <td>${r.employee}</td>
+        <td>${r.equipment}</td>
         <td>${r.qty}</td>
         <td>${badge}</td>
-        <td>${r.checkoutDate}</td>
-        <td>${r.returnDate}</td>
+        <td>${r.created_at || '-'}</td>
+        <td>${r.return_date}</td>
         <td>
           <button onclick="deleteEntry(${r.id})" style="background:#ffe9e9;color:#b53a2a;border:none;padding:7px 12px;border-radius:8px;cursor:pointer;font-weight:600;">
             Delete

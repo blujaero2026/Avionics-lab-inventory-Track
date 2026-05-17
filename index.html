@@ -1,290 +1,647 @@
 <!DOCTYPE html>
 <html lang="en">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Avionics— Lab Inventory Tracker</title>
+<title>AVIONICS — Lab Inventory System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-body {
-  background: linear-gradient(135deg, #dfefff 0%, #eefaf4 35%, #fff2e8 100%);
-  background-size: 300% 300%;
-  animation: gradientFlow 12s ease infinite;
-  animation: fadeIn 0.8s ease;
-}
-
-@keyframes gradientFlow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0px);
-  }
-}
-
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
-
 :root {
-  --bg: #f5f4f0;
-  --surface: #ffffff;
-  --border: #e2e0d8;
-  --text: #1a1916;
-  --muted: #7a7870;
-  --green: #1a6b4a;
-  --green-bg: #e8f5ef;
-  --red: #b53a2a;
-  --red-bg: #fdf0ee;
-  --blue: #1a4a7a;
-  --blue-bg: #e8f0fa;
+  --bg: #060910;
+  --bg2: #0a0f1a;
+  --surface: #0d1424;
+  --surface2: #111d30;
+  --border: #1a2d4a;
+  --border2: #1e3557;
+  --accent: #00d4ff;
+  --accent2: #0099cc;
+  --accent-dim: rgba(0,212,255,0.08);
+  --accent-glow: rgba(0,212,255,0.25);
+  --green: #00ff9d;
+  --green-dim: rgba(0,255,157,0.08);
+  --red: #ff4d6a;
+  --red-dim: rgba(255,77,106,0.08);
+  --amber: #ffb703;
+  --amber-dim: rgba(255,183,3,0.08);
+  --text: #c8dff0;
+  --text2: #6a8faa;
+  --text3: #3a5a70;
+  --mono: 'Share Tech Mono', monospace;
+  --sans: 'Exo 2', sans-serif;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--sans);
   background: var(--bg);
   color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
-header {
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  background: #111;
-  color: white;
-  padding: 1rem 2rem;
+/* ── STARFIELD CANVAS ── */
+#starfield {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ── GRID OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── SCAN LINE ── */
+body::after {
+  content: '';
+  position: fixed;
+  top: -100%;
+  left: 0; right: 0;
+  height: 200px;
+  background: linear-gradient(transparent, rgba(0,212,255,0.025), transparent);
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+@keyframes scanline {
+  0% { top: -200px; }
+  100% { top: 100vh; }
+}
+
+/* ── WRAPPER ── */
+.app {
+  position: relative;
+  z-index: 10;
+  min-height: 100vh;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+}
+
+/* ── HEADER ── */
+header {
+  border-bottom: 1px solid var(--border);
+  background: rgba(6,9,16,0.85);
+  backdrop-filter: blur(20px);
+  padding: 0 2rem;
+  height: 64px;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: headerGlow 3s ease-in-out infinite;
+}
+@keyframes headerGlow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-weight: 600;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 36px; height: 36px;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.logo-icon svg {
+  width: 28px; height: 28px;
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent));
+  animation: iconPulse 2s ease-in-out infinite;
+}
+@keyframes iconPulse {
+  0%, 100% { filter: drop-shadow(0 0 6px var(--accent)); }
+  50% { filter: drop-shadow(0 0 14px var(--accent)); }
+}
+
+.logo-text {
+  display: flex; flex-direction: column; gap: 1px;
+}
+
+.logo-main {
+  font-family: var(--mono);
   font-size: 15px;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+  text-shadow: 0 0 20px var(--accent-glow);
 }
 
-.logo-dot {
-  width: 8px;
-  height: 8px;
+.logo-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.header-right {
+  display: flex; align-items: center; gap: 16px;
+}
+
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+  letter-spacing: 0.1em;
+}
+
+.pulse-dot {
+  width: 7px; height: 7px;
   border-radius: 50%;
-  background: #39d98a;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: pulseDot 1.5s ease-in-out infinite;
+}
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
 }
 
-.header-sub {
-  font-size: 12px;
-  color: rgba(255,255,255,0.5);
-  font-family: 'DM Mono', monospace;
+.sys-time {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 0.05em;
 }
 
-.container {
-  max-width: 880px;
-  margin: auto;
-  padding: 2rem 1rem;
+/* ── MAIN ── */
+main {
+  flex: 1;
+  max-width: 860px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
 }
 
+/* ── HERO ── */
+.hero {
+  text-align: center;
+  margin-bottom: 2.5rem;
+  animation: heroIn 0.8s ease both;
+}
+@keyframes heroIn {
+  from { opacity: 0; transform: translateY(-16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.hero-title {
+  font-size: clamp(22px, 4vw, 32px);
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  text-shadow: 0 0 40px rgba(0,212,255,0.3);
+}
+
+.hero-line {
+  display: block;
+  font-weight: 300;
+  color: var(--text2);
+  font-size: clamp(13px, 2vw, 16px);
+  margin-top: 6px;
+  letter-spacing: 0.1em;
+}
+
+/* ── TABS ── */
 .tabs {
   display: flex;
   gap: 4px;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 4px;
+  padding: 5px;
   margin-bottom: 1.5rem;
+  animation: fadeUp 0.6s 0.2s ease both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .tab {
   flex: 1;
-  padding: 12px;
+  padding: 11px 8px;
   border: none;
-  background: transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.tab {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  background: transparent;
   transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-.tab:hover {
-  background: rgba(26,107,74,0.08);
-  color: var(--green);
+.tab::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--accent-dim), transparent);
+  opacity: 0;
+  transition: opacity 0.25s;
 }
+
+.tab:hover { color: var(--accent); }
+.tab:hover::before { opacity: 1; }
 
 .tab.active {
-  background: #111;
-  color: white;
+  background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,212,255,0.05));
+  color: var(--accent);
+  border: 1px solid rgba(0,212,255,0.3);
+  text-shadow: 0 0 12px var(--accent-glow);
+  box-shadow: inset 0 1px 0 rgba(0,212,255,0.2), 0 0 20px var(--accent-dim);
 }
 
-.section {
-  display: none;
-}
-
+/* ── SECTIONS ── */
+.section { display: none; }
 .section.active {
   display: block;
+  animation: sectionIn 0.4s ease both;
+}
+@keyframes sectionIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.card {
-  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+/* ── INFO BOX ── */
+.info-box {
+  background: var(--accent-dim);
+  border: 1px solid rgba(0,212,255,0.15);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 1.2rem;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text2);
+  letter-spacing: 0.03em;
+  display: flex; align-items: flex-start; gap: 10px;
+}
 
-  background: white;
+.info-box::before {
+  content: '//';
+  color: var(--accent);
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+/* ── CARD ── */
+.card {
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 1.5rem;
+  padding: 1.75rem;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
 }
 
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(0,0,0,0.1);
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
 }
+
+.card:hover { border-color: var(--border2); }
+
+/* card corner brackets */
+.card::after {
+  content: '';
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 16px; height: 16px;
+  border-top: 1px solid var(--accent);
+  border-right: 1px solid var(--accent);
+  opacity: 0.4;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+}
+
+.card-icon.green { background: var(--green-dim); }
+.card-icon.red { background: var(--red-dim); }
+.card-icon.amber { background: var(--amber-dim); }
 
 .card-title {
-  font-size: 14px;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
-  font-weight: 600;
-  color: var(--muted);
-  margin-bottom: 1rem;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  color: var(--text2);
 }
+
+.card-title span {
+  display: block;
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: 2px;
+  letter-spacing: 0.1em;
+}
+
+/* ── FORM ELEMENTS ── */
+.field { margin-bottom: 16px; }
 
 label {
   display: block;
-  margin-top: 14px;
-  margin-bottom: 5px;
-  font-size: 12px;
-  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 7px;
 }
 
 input, select {
-  transition: all 0.2s ease;
-
   width: 100%;
-  padding: 11px 12px;
+  padding: 11px 14px;
+  background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
   font-size: 14px;
+  outline: none;
+  transition: all 0.2s ease;
+  -webkit-appearance: none;
 }
+
+input::placeholder { color: var(--text3); font-size: 13px; }
+
+input:focus, select:focus {
+  border-color: rgba(0,212,255,0.4);
+  background: var(--surface2);
+  box-shadow: 0 0 0 3px rgba(0,212,255,0.06), inset 0 1px 0 rgba(0,212,255,0.05);
+  color: #fff;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5) sepia(1) hue-rotate(170deg);
+  cursor: pointer;
+}
+
+select option { background: var(--surface); }
 
 .row2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 14px;
 }
 
+/* ── CONDITION SELECTOR ── */
+.cond-group {
+  display: flex; gap: 8px;
+}
+
+.cond-btn {
+  flex: 1;
+  padding: 9px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text3);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.cond-btn:hover { border-color: var(--border2); color: var(--text); }
+.cond-btn.sel-good { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+.cond-btn.sel-fair { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+.cond-btn.sel-damaged { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+
+/* ── BUTTONS ── */
 .btn {
   width: 100%;
-  margin-top: 1.2rem;
-  padding: 13px;
+  margin-top: 1.4rem;
+  padding: 14px;
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s ease;
 }
+
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  transition: left 0.5s ease;
+}
+.btn:hover::before { left: 100%; }
 
 .btn-green {
-  background: linear-gradient(135deg,#1a6b4a,#2c9b68);
-  box-shadow: 0 6px 18px rgba(26,107,74,0.25);
-
-  background: var(--green);
-  color: white;
+  background: linear-gradient(135deg, rgba(0,255,157,0.15), rgba(0,255,157,0.08));
+  border: 1px solid rgba(0,255,157,0.3);
+  color: var(--green);
+  box-shadow: 0 0 20px rgba(0,255,157,0.1);
+}
+.btn-green:hover {
+  background: linear-gradient(135deg, rgba(0,255,157,0.22), rgba(0,255,157,0.12));
+  box-shadow: 0 0 30px rgba(0,255,157,0.2);
+  transform: translateY(-1px);
 }
 
-.btn-dark {
-  background: linear-gradient(135deg,#111,#333);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.18);
-
-  background: #111;
-  color: white;
+.btn-accent {
+  background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,212,255,0.08));
+  border: 1px solid rgba(0,212,255,0.3);
+  color: var(--accent);
+  box-shadow: 0 0 20px rgba(0,212,255,0.1);
+}
+.btn-accent:hover {
+  background: linear-gradient(135deg, rgba(0,212,255,0.22), rgba(0,212,255,0.12));
+  box-shadow: 0 0 30px rgba(0,212,255,0.2);
+  transform: translateY(-1px);
 }
 
+.btn-amber {
+  background: linear-gradient(135deg, rgba(255,183,3,0.15), rgba(255,183,3,0.08));
+  border: 1px solid rgba(255,183,3,0.3);
+  color: var(--amber);
+  box-shadow: 0 0 20px rgba(255,183,3,0.1);
+}
+.btn-amber:hover {
+  box-shadow: 0 0 30px rgba(255,183,3,0.2);
+  transform: translateY(-1px);
+}
+
+.btn-sm {
+  width: auto;
+  margin-top: 0;
+  padding: 8px 16px;
+  font-size: 11px;
+}
+
+/* ── MESSAGES ── */
 .msg {
   margin-top: 12px;
-  padding: 10px;
+  padding: 11px 14px;
   border-radius: 8px;
   display: none;
-  font-size: 13px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  animation: msgIn 0.3s ease;
+}
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .msg.success {
   display: block;
-  background: var(--green-bg);
+  background: var(--green-dim);
+  border: 1px solid rgba(0,255,157,0.2);
   color: var(--green);
 }
+.msg.success::before { content: '✓  '; }
 
 .msg.error {
   display: block;
-  background: var(--red-bg);
+  background: var(--red-dim);
+  border: 1px solid rgba(255,77,106,0.2);
   color: var(--red);
 }
+.msg.error::before { content: '✕  '; }
 
-.info-box {
-  box-shadow: 0 4px 14px rgba(26,74,122,0.08);
-
-  background: var(--blue-bg);
-  color: var(--blue);
-  border-radius: 10px;
+/* ── ADMIN BOX ── */
+.admin-warn {
+  background: var(--amber-dim);
+  border: 1px solid rgba(255,183,3,0.2);
+  border-left: 3px solid var(--amber);
+  border-radius: 8px;
   padding: 12px 16px;
-  margin-bottom: 1rem;
-  font-size: 13px;
+  margin-bottom: 1.2rem;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--amber);
+  letter-spacing: 0.03em;
 }
 
-.admin-box {
-  margin-bottom: 1rem;
-  background: #fff8e7;
-  border: 1px solid #f0dca5;
-  color: #7a5800;
-  padding: 12px 16px;
-  border-radius: 10px;
-  font-size: 13px;
-}
-
+/* ── STATS ── */
 .stats {
   display: grid;
-  grid-template-columns: repeat(3,1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  margin-bottom: 1rem;
+  margin-bottom: 1.2rem;
 }
 
 .stat {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 1rem;
+  padding: 1.1rem 1rem;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
 }
+
+.stat:hover { border-color: var(--border2); }
+
+.stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+.stat:nth-child(1)::before { background: linear-gradient(90deg, var(--accent), transparent); }
+.stat:nth-child(2)::before { background: linear-gradient(90deg, var(--red), transparent); }
+.stat:nth-child(3)::before { background: linear-gradient(90deg, var(--green), transparent); }
 
 .stat-num {
-  font-size: 28px;
-  font-weight: 600;
+  font-family: var(--mono);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1;
+  margin-bottom: 4px;
 }
+.stat:nth-child(1) .stat-num { color: var(--accent); text-shadow: 0 0 20px var(--accent-glow); }
+.stat:nth-child(2) .stat-num { color: var(--red); }
+.stat:nth-child(3) .stat-num { color: var(--green); }
 
 .stat-lbl {
-  font-size: 11px;
-  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
+  color: var(--text3);
 }
 
+/* ── TABLE ── */
 .table-wrap {
   overflow-x: auto;
+  border-radius: 12px;
 }
+
+.table-wrap::-webkit-scrollbar { height: 4px; }
+.table-wrap::-webkit-scrollbar-track { background: var(--bg2); }
+.table-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
 table {
   width: 100%;
@@ -292,186 +649,280 @@ table {
   font-size: 13px;
 }
 
-th, td {
-  padding: 12px;
+thead tr {
   border-bottom: 1px solid var(--border);
-  text-align: left;
 }
 
 th {
-  font-size: 11px;
-  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
+  color: var(--text3);
+  padding: 10px 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+td {
+  padding: 12px 12px;
+  border-bottom: 1px solid rgba(26,45,74,0.5);
+  color: var(--text);
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+tbody tr {
+  transition: background 0.2s;
+}
+tbody tr:hover {
+  background: rgba(0,212,255,0.03);
 }
 
 .badge {
+  display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 10px;
   border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  font-weight: 400;
 }
 
 .badge-out {
-  background: var(--blue-bg);
-  color: var(--blue);
+  background: rgba(0,212,255,0.1);
+  border: 1px solid rgba(0,212,255,0.25);
+  color: var(--accent);
 }
+.badge-out::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); display: inline-block; }
 
 .badge-ret {
-  background: var(--green-bg);
+  background: var(--green-dim);
+  border: 1px solid rgba(0,255,157,0.25);
   color: var(--green);
 }
+.badge-ret::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--green); display: inline-block; }
 
-.hidden {
-  display: none;
+.del-btn {
+  background: var(--red-dim);
+  border: 1px solid rgba(255,77,106,0.2);
+  color: var(--red);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+}
+.del-btn:hover { background: rgba(255,77,106,0.15); box-shadow: 0 0 12px rgba(255,77,106,0.2); }
+
+.hidden { display: none !important; }
+
+/* ── EXPORT BTN ── */
+.export-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
 }
 
-@media(max-width:700px){
-  .row2 {
-    grid-template-columns: 1fr;
-  }
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  font-family: var(--mono);
+  color: var(--text3);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 640px) {
+  main { padding: 1.5rem 1rem 3rem; }
+  .row2 { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .stat-num { font-size: 24px; }
+  header { padding: 0 1rem; }
+  .sys-time { display: none; }
+  .card { padding: 1.25rem; }
 }
 </style>
 </head>
 <body>
 
+<canvas id="starfield"></canvas>
+
+<div class="app">
 <header>
   <div class="logo">
-    <div class="logo-dot"></div>
-    Avionics — Lab Inventory
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <div class="logo-main">AVIONICS</div>
+      <div class="logo-sub">Lab Inventory System</div>
+    </div>
   </div>
-  <div class="header-sub">Admin Controlled Register</div>
+  <div class="header-right">
+    <div class="status-pill">
+      <div class="pulse-dot"></div>
+      SYSTEM ONLINE
+    </div>
+    <div class="sys-time" id="sysTime">--:--:--</div>
+  </div>
 </header>
 
-<div class="container">
-
-  <div class="tabs">
-    <button type="button" class="tab active" id="tab-checkout">Check Out</button>
-    <button type="button" class="tab" id="tab-return">Return</button>
-    <button type="button" class="tab" id="tab-admin">Admin Log</button>
+<main>
+  <div class="hero">
+    <div class="hero-label">// BLUJ AEROSPACE — EQUIPMENT REGISTER</div>
+    <h1 class="hero-title">
+      Lab Inventory Control
+      <span class="hero-line">Track · Monitor · Manage</span>
+    </h1>
   </div>
 
-  <!-- CHECKOUT SECTION -->
+  <div class="tabs">
+    <button type="button" class="tab active" id="tab-checkout">⬆ Check Out</button>
+    <button type="button" class="tab" id="tab-return">⬇ Return</button>
+    <button type="button" class="tab" id="tab-admin">⬡ Admin Log</button>
+  </div>
+
+  <!-- CHECKOUT -->
   <div id="checkout" class="section active">
     <div class="info-box">
-      Only checkout and return forms are visible to normal users. Complete log data is protected inside Admin Log.
+      Checkout and return forms are accessible to all lab personnel. Admin log is restricted.
     </div>
-
     <div class="card">
-      <div class="card-title">Equipment Checkout</div>
+      <div class="card-header">
+        <div class="card-icon green">🛰</div>
+        <div class="card-title">
+          Equipment Checkout
+          <span>Fill all required fields before signing out equipment</span>
+        </div>
+      </div>
 
-      <label>Your Full Name</label>
-      <input type="text" id="co-name" placeholder="e.g. Employee Name">
+      <div class="field">
+        <label>Full Name</label>
+        <input type="text" id="co-name" placeholder="e.g. Rahul Das">
+      </div>
 
       <div class="row2">
-        <div>
+        <div class="field">
           <label>Equipment / Component</label>
           <input type="text" id="co-equip" placeholder="e.g. Oscilloscope">
         </div>
-
-        <div>
+        <div class="field">
           <label>Quantity</label>
           <input type="number" id="co-qty" value="1" min="1">
         </div>
       </div>
 
       <div class="row2">
-        <div>
+        <div class="field">
           <label>Expected Return Date</label>
           <input type="date" id="co-return">
         </div>
-
-        <div>
+        <div class="field">
           <label>Purpose / Notes</label>
           <input type="text" id="co-notes" placeholder="e.g. UAV electronics testing">
         </div>
       </div>
 
-      <button class="btn btn-green" onclick="doCheckout()">✓ Check Out Equipment</button>
+      <button class="btn btn-green" onclick="doCheckout()">⬆ &nbsp; CHECK OUT EQUIPMENT</button>
       <div id="co-msg" class="msg"></div>
     </div>
   </div>
 
-  <!-- RETURN SECTION -->
+  <!-- RETURN -->
   <div id="return" class="section">
     <div class="card">
-      <div class="card-title">Return Equipment</div>
+      <div class="card-header">
+        <div class="card-icon red">📡</div>
+        <div class="card-title">
+          Return Equipment
+          <span>Confirm return and equipment condition</span>
+        </div>
+      </div>
 
       <div class="row2">
-        <div>
+        <div class="field">
           <label>Your Name</label>
-          <input type="text" id="ret-name" placeholder="e.g. Employee Name">
+          <input type="text" id="ret-name" placeholder="e.g. Rahul Das">
         </div>
-
-        <div>
+        <div class="field">
           <label>Equipment Name</label>
           <input type="text" id="ret-equip" placeholder="e.g. Oscilloscope">
         </div>
       </div>
 
-      <div class="row2">
-        <div>
-          <label>Condition</label>
-          <select id="ret-cond">
-            <option>Good</option>
-            <option>Fair</option>
-            <option>Damaged</option>
-          </select>
+      <div class="field">
+        <label>Condition</label>
+        <div class="cond-group">
+          <button type="button" class="cond-btn sel-good" onclick="selectCond(this,'Good')">✓ Good</button>
+          <button type="button" class="cond-btn" onclick="selectCond(this,'Fair')">~ Fair</button>
+          <button type="button" class="cond-btn" onclick="selectCond(this,'Damaged')">✕ Damaged</button>
         </div>
-
-        <div>
-          <label>Remarks</label>
-          <input type="text" id="ret-remarks" placeholder="Optional remarks">
-        </div>
+        <input type="hidden" id="ret-cond" value="Good">
       </div>
 
-      <button class="btn btn-dark" onclick="doReturn()">↩ Mark Returned</button>
+      <div class="field">
+        <label>Remarks <span style="opacity:0.5;font-size:9px;">(optional)</span></label>
+        <input type="text" id="ret-remarks" placeholder="Any observations or notes">
+      </div>
+
+      <button class="btn btn-accent" onclick="doReturn()">⬇ &nbsp; CONFIRM RETURN</button>
       <div id="ret-msg" class="msg"></div>
     </div>
   </div>
 
-  <!-- ADMIN SECTION -->
+  <!-- ADMIN -->
   <div id="admin" class="section">
-
     <div id="admin-login">
-      <div class="admin-box">
-        Admin log is protected and accessible only to authorized lab administrators.
+      <div class="admin-warn">
+        ⚠ &nbsp; Admin log is restricted to authorized lab administrators only.
       </div>
-
       <div class="card">
-        <div class="card-title">Admin Access</div>
-
-        <label>Admin Password</label>
-        <input type="password" id="admin-pass" placeholder="Enter admin password">
-
-        <button class="btn btn-dark" onclick="adminLogin()">Open Admin Log</button>
+        <div class="card-header">
+          <div class="card-icon amber">🔐</div>
+          <div class="card-title">
+            Secure Access
+            <span>Enter administrator credentials to continue</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Admin Password</label>
+          <input type="password" id="admin-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')adminLogin()">
+        </div>
+        <button class="btn btn-amber" onclick="adminLogin()">⬡ &nbsp; ACCESS ADMIN LOG</button>
         <div id="admin-msg" class="msg"></div>
       </div>
     </div>
 
     <div id="admin-panel" class="hidden">
-
       <div class="stats">
         <div class="stat">
           <div class="stat-num" id="s-total">0</div>
           <div class="stat-lbl">Total</div>
         </div>
-
         <div class="stat">
           <div class="stat-num" id="s-out">0</div>
           <div class="stat-lbl">Out</div>
         </div>
-
         <div class="stat">
           <div class="stat-num" id="s-ret">0</div>
           <div class="stat-lbl">Returned</div>
         </div>
       </div>
 
-      <button class="btn btn-green" onclick="exportCSV()" style="margin-bottom:1rem;max-width:220px;">
-        ⬇ Export CSV
-      </button>
+      <div class="export-row">
+        <button class="btn btn-accent btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+      </div>
 
-      <div class="card table-wrap">
+      <div class="card table-wrap" style="padding:0;">
         <table>
           <thead>
             <tr>
@@ -480,284 +931,225 @@ th {
               <th>Qty</th>
               <th>Status</th>
               <th>Checkout</th>
-              <th>Return Date</th>
+              <th>Return By</th>
               <th>Action</th>
             </tr>
           </thead>
-          <tbody id="log-body"></tbody>
+          <tbody id="log-body">
+            <tr><td colspan="7" class="empty-state">// Loading records...</td></tr>
+          </tbody>
         </table>
       </div>
     </div>
   </div>
+</main>
 </div>
-  
+
 <script>
+/* ── STARFIELD ── */
+(function(){
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  let stars = [];
+  function resize(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  function initStars(){
+    stars = [];
+    for(let i=0;i<120;i++){
+      stars.push({
+        x: Math.random()*canvas.width,
+        y: Math.random()*canvas.height,
+        r: Math.random()*1.2+0.2,
+        o: Math.random()*0.6+0.1,
+        s: Math.random()*0.15+0.02
+      });
+    }
+  }
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    stars.forEach(s=>{
+      s.o += (Math.random()-0.5)*0.03;
+      s.o = Math.max(0.05, Math.min(0.7, s.o));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(180,220,255,${s.o})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  resize(); initStars(); draw();
+  window.addEventListener('resize', ()=>{ resize(); initStars(); });
+})();
+
+/* ── CLOCK ── */
+function updateClock(){
+  const now = new Date();
+  document.getElementById('sysTime').textContent =
+    now.toLocaleTimeString('en-IN', {hour12:false}) + ' IST';
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+/* ── SUPABASE ── */
 const SUPABASE_URL = 'https://mjlehoqvstmajhtdzfpx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_80lotbpTDm6fSESJ5ipYrQ_AAzhrqAk';
-
-const supabaseClient = supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
-);
-
-const KEY = 'bluj_lab_v3';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const ADMIN_PASSWORD = 'bluj12';
 
-function load() {
-  return JSON.parse(localStorage.getItem(KEY) || '[]');
+/* ── CONDITION SELECT ── */
+function selectCond(btn, val){
+  document.querySelectorAll('.cond-btn').forEach(b=>{
+    b.classList.remove('sel-good','sel-fair','sel-damaged');
+  });
+  if(val==='Good') btn.classList.add('sel-good');
+  if(val==='Fair') btn.classList.add('sel-fair');
+  if(val==='Damaged') btn.classList.add('sel-damaged');
+  document.getElementById('ret-cond').value = val;
 }
 
-function save(data) {
-  localStorage.setItem(KEY, JSON.stringify(data));
-}
-
-function showMsg(id, text, type) {
+/* ── MSG ── */
+function showMsg(id, text, type){
   const el = document.getElementById(id);
   el.textContent = text;
   el.className = 'msg ' + type;
-
-  setTimeout(() => {
-    el.className = 'msg';
-  }, 3000);
+  setTimeout(()=>{ el.className='msg'; }, 4000);
 }
 
-async function doCheckout() {
-  const name = document.getElementById('co-name').value.trim().toLowerCase();
-  const equip = document.getElementById('co-equip').value.trim().toLowerCase();
-  const qty = document.getElementById('co-qty').value;
-  const returnDate = document.getElementById('co-return').value;
-  const notes = document.getElementById('co-notes').value.trim().toLowerCase();
+/* ── CHECKOUT ── */
+async function doCheckout(){
+  const name      = document.getElementById('co-name').value.trim().toLowerCase();
+  const equip     = document.getElementById('co-equip').value.trim().toLowerCase();
+  const qty       = document.getElementById('co-qty').value;
+  const returnDate= document.getElementById('co-return').value;
+  const notes     = document.getElementById('co-notes').value.trim().toLowerCase();
 
-  if(!name || !equip || !returnDate) {
-    showMsg('co-msg', 'Please complete all required fields.', 'error');
+  if(!name || !equip || !returnDate){
+    showMsg('co-msg','Please complete all required fields.','error');
     return;
   }
 
-  const { error } = await supabaseClient
-    .from('inventory_logs')
-    .insert([
-      {
-        employee: name,
-        equipment: equip,
-        qty: parseInt(qty),
-        return_date: returnDate,
-        notes: notes,
-        status: 'OUT'
-      }
-    ]);
+  const { error } = await supabaseClient.from('inventory_logs').insert([{
+    employee: name, equipment: equip,
+    qty: parseInt(qty), return_date: returnDate,
+    notes: notes, status: 'OUT'
+  }]);
 
-  if (error) {
-    console.error(error);
-    showMsg('co-msg', 'Cloud save failed.', 'error');
-    return;
-  }
+  if(error){ console.error(error); showMsg('co-msg','Cloud save failed. Try again.','error'); return; }
 
-  document.getElementById('co-name').value = '';
-  document.getElementById('co-equip').value = '';
-  document.getElementById('co-notes').value = '';
-  document.getElementById('co-qty').value = 1;
-  document.getElementById('co-return').value = '';
-
-  showMsg('co-msg', 'Equipment checked out successfully.', 'success');
+  ['co-name','co-equip','co-notes','co-return'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('co-qty').value=1;
+  showMsg('co-msg','Equipment checked out successfully.','success');
 }
 
-async function doReturn() {
-const nameEl = document.getElementById('ret-name');
-const equipEl = document.getElementById('ret-equip');
-const conditionEl = document.getElementById('ret-condition');
-const remarksEl = document.getElementById('ret-remarks');
+/* ── RETURN ── */
+async function doReturn(){
+  const name   = document.getElementById('ret-name').value.trim().toLowerCase();
+  const equip  = document.getElementById('ret-equip').value.trim().toLowerCase();
+  const cond   = document.getElementById('ret-cond').value;
+  const remarks= document.getElementById('ret-remarks').value.trim().toLowerCase();
 
-console.log(nameEl, equipEl, conditionEl, remarksEl);
+  if(!name || !equip){ showMsg('ret-msg','Please complete required fields.','error'); return; }
 
-const name = nameEl ? nameEl.value.trim().toLowerCase() : '';
-const equip = equipEl ? equipEl.value.trim().toLowerCase() : '';
-const condition = conditionEl ? conditionEl.value : 'Good';
-const remarks = remarksEl ? remarksEl.value.trim().toLowerCase()
-  : '';
-
-  if (!name || !equip) {
-    showMsg('ret-msg', 'Please complete required fields.', 'error');
-    return;
-  }
-
-  // Find latest OUT entry
   const { data, error } = await supabaseClient
-    .from('inventory_logs')
-    .select('*')
-    .eq('employee', name)
-    .eq('equipment', equip)
-    .eq('status', 'OUT')
-    .order('id', { ascending: false })
-    .limit(1);
+    .from('inventory_logs').select('*')
+    .eq('employee', name).eq('equipment', equip).eq('status','OUT')
+    .order('id',{ascending:false}).limit(1);
 
-  if (error) {
-    console.error(error);
-    showMsg('ret-msg', 'Database search failed.', 'error');
-    return;
-  }
+  if(error){ console.error(error); showMsg('ret-msg','Database search failed.','error'); return; }
+  if(!data||data.length===0){ showMsg('ret-msg','No matching checked-out equipment found.','error'); return; }
 
-  if (!data || data.length === 0) {
-    showMsg('ret-msg', 'No matching checked-out equipment found.', 'error');
-    return;
-  }
+  const { error: ue } = await supabaseClient.from('inventory_logs').update({
+    status:'RETURNED',
+    notes: (remarks||data[0].notes||'') + ' | Condition: ' + cond
+  }).eq('id', data[0].id);
 
-  const recordId = data[0].id;
+  if(ue){ console.error(ue); showMsg('ret-msg','Return update failed.','error'); return; }
 
-  // Update record
-  const { error: updateError } = await supabaseClient
-    .from('inventory_logs')
-    .update({
-      status: 'RETURNED',
-      notes: remarks || data[0].notes + ' | Returned Condition: ' + condition
-    })
-    .eq('id', recordId);
-
-  if (updateError) {
-    console.error(updateError);
-    showMsg('ret-msg', 'Return update failed.', 'error');
-    return;
-  }
-
-  // Clear form
- const retName = document.getElementById('ret-name');
-const retEquip = document.getElementById('ret-equip');
-const retCondition = document.getElementById('ret-condition');
-const retRemarks = document.getElementById('ret-remarks');
-
-if (retName) retName.value = '';
-if (retEquip) retEquip.value = '';
-if (retCondition) retCondition.value = 'Good';
-if (retRemarks) retRemarks.value = '';
-
-  // Refresh admin log if open
-  if (typeof renderLog === 'function') {
-    renderLog();
-  }
-
-  showMsg('ret-msg', 'Equipment marked as RETURNED.', 'success');
+  ['ret-name','ret-equip','ret-remarks'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ret-cond').value='Good';
+  selectCond(document.querySelector('.cond-btn'),'Good');
+  if(typeof renderLog==='function') renderLog();
+  showMsg('ret-msg','Equipment marked as RETURNED.','success');
 }
 
-function adminLogin() {
+/* ── ADMIN LOGIN ── */
+function adminLogin(){
   const pass = document.getElementById('admin-pass').value;
-
-  if(pass !== ADMIN_PASSWORD) {
-    showMsg('admin-msg', 'Incorrect password.', 'error');
-    return;
-  }
-
+  if(pass!==ADMIN_PASSWORD){ showMsg('admin-msg','Incorrect password.','error'); return; }
   document.getElementById('admin-login').classList.add('hidden');
   document.getElementById('admin-panel').classList.remove('hidden');
-
   renderLog();
 }
 
-async function deleteEntry(id) {
+/* ── DELETE ── */
+async function deleteEntry(id){
   if(!confirm('Delete this entry permanently?')) return;
-
-  const { error } = await supabaseClient
-    .from('inventory_logs')
-    .delete()
-    .eq('id', id);
-
-  if(error){
-    console.error(error);
-    return;
-  }
-
+  const { error } = await supabaseClient.from('inventory_logs').delete().eq('id',id);
+  if(error){ console.error(error); return; }
   renderLog();
 }
 
-async function exportCSV() {
-  const { data, error } = await supabaseClient
-    .from('inventory_logs')
-    .select('*')
-    .order('id', { ascending: false });
-
-  if(error){
-    console.error(error);
-    return;
-  }
-
-  const headers = ['Employee','Equipment','Qty','Status','Return Date'];
-
-  const rows = data.map(r => [
-    r.employee,
-    r.equipment,
-    r.qty,
-    r.status,
-    r.return_date
-  ].join(','));
-
-  const csv = [headers.join(','), ...rows].join('\n');
-
-  const blob = new Blob([csv], { type: 'text/csv' });
+/* ── EXPORT ── */
+async function exportCSV(){
+  const { data, error } = await supabaseClient.from('inventory_logs').select('*').order('id',{ascending:false});
+  if(error){ console.error(error); return; }
+  const headers = ['Employee','Equipment','Qty','Status','Return Date','Notes'];
+  const rows = data.map(r=>[r.employee,r.equipment,r.qty,r.status,r.return_date,r.notes||''].join(','));
+  const csv = [headers.join(','),...rows].join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement('a');
-  a.href = url;
-  a.download = 'Bluj_Inventory_Log.csv';
-  a.click();
-
+  a.href=url; a.download='Bluj_Inventory_Log.csv'; a.click();
   URL.revokeObjectURL(url);
 }
 
-async function renderLog() {
-  const { data, error } = await supabaseClient
-    .from('inventory_logs')
-    .select('*')
-    .order('id', { ascending: false });
+/* ── RENDER LOG ── */
+async function renderLog(){
+  const { data, error } = await supabaseClient.from('inventory_logs').select('*').order('id',{ascending:false});
+  if(error){ console.error(error); return; }
 
-  if(error){
-    console.error(error);
+  document.getElementById('s-total').textContent = data.length;
+  document.getElementById('s-out').textContent = data.filter(d=>d.status==='OUT').length;
+  document.getElementById('s-ret').textContent = data.filter(d=>d.status==='RETURNED').length;
+
+  const body = document.getElementById('log-body');
+  if(!data.length){
+    body.innerHTML = '<tr><td colspan="7" class="empty-state">// No records found</td></tr>';
     return;
   }
 
-  const body = document.getElementById('log-body');
-
-  document.getElementById('s-total').textContent = data.length;
-  document.getElementById('s-out').textContent = data.filter(d => d.status === 'OUT').length;
-  document.getElementById('s-ret').textContent = data.filter(d => d.status === 'RETURNED').length;
-
-  body.innerHTML = '';
-
-  data.forEach(r => {
-    const badge = r.status === 'OUT'
-      ? '<span class="badge badge-out">OUT</span>'
-      : '<span class="badge badge-ret">RETURNED</span>';
-
-    body.innerHTML += `
-      <tr>
-        <td>${r.employee}</td>
-        <td>${r.equipment}</td>
-        <td>${r.qty}</td>
-        <td>${badge}</td>
-        <td>${r.created_at || '-'}</td>
-        <td>${r.return_date}</td>
-        <td>
-          <button onclick="deleteEntry(${r.id})" style="background:#ffe9e9;color:#b53a2a;border:none;padding:7px 12px;border-radius:8px;cursor:pointer;font-weight:600;">
-            Delete
-          </button>
-        </td>
-      </tr>
-    `;
-  });
+  body.innerHTML = data.map(r=>`
+    <tr>
+      <td>${r.employee||'-'}</td>
+      <td>${r.equipment||'-'}</td>
+      <td>${r.qty||'-'}</td>
+      <td>${r.status==='OUT'
+        ? '<span class="badge badge-out">OUT</span>'
+        : '<span class="badge badge-ret">RETURNED</span>'}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--text2);">${r.created_at?new Date(r.created_at).toLocaleDateString('en-IN'):'-'}</td>
+      <td style="font-family:var(--mono);font-size:11px;">${r.return_date||'-'}</td>
+      <td><button class="del-btn" onclick="deleteEntry(${r.id})">Delete</button></td>
+    </tr>
+  `).join('');
 }
 
-window.onload = function() {
+/* ── TABS ── */
+window.onload = function(){
   const sections = document.querySelectorAll('.section');
   const tabs = document.querySelectorAll('.tab');
 
-  function openTab(id) {
-    sections.forEach(sec => sec.classList.remove('active'));
-    tabs.forEach(tab => tab.classList.remove('active'));
-
+  function openTab(id){
+    sections.forEach(s=>s.classList.remove('active'));
+    tabs.forEach(t=>t.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-    document.getElementById('tab-' + id).classList.add('active');
+    document.getElementById('tab-'+id).classList.add('active');
   }
 
-  document.getElementById('tab-checkout').onclick = () => openTab('checkout');
-  document.getElementById('tab-return').onclick = () => openTab('return');
-  document.getElementById('tab-admin').onclick = () => openTab('admin');
+  document.getElementById('tab-checkout').onclick = ()=>openTab('checkout');
+  document.getElementById('tab-return').onclick   = ()=>openTab('return');
+  document.getElementById('tab-admin').onclick    = ()=>openTab('admin');
 };
 </script>
 </body>

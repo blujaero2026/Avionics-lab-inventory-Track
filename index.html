@@ -736,6 +736,47 @@ tbody tr:hover {
   letter-spacing: 0.05em;
 }
 
+/* ── EQUIPMENT CHECKBOX CARDS ── */
+.equip-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.equip-card:hover { border-color: var(--border2); background: var(--surface2); }
+.equip-card input[type="checkbox"] {
+  width: 18px; height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer; flex-shrink: 0; margin: 0; padding: 0;
+}
+.equip-card:has(input:checked) {
+  border-color: rgba(0,212,255,0.4);
+  background: var(--accent-dim);
+  box-shadow: 0 0 12px rgba(0,212,255,0.08);
+}
+.equip-card-body { flex: 1; }
+.equip-card-name {
+  font-size: 14px; font-weight: 500;
+  color: var(--text); margin-bottom: 4px; text-transform: capitalize;
+}
+.equip-card:has(input:checked) .equip-card-name { color: var(--accent); }
+.equip-card-meta {
+  display: flex; gap: 14px;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--text3); letter-spacing: 0.05em;
+}
+.equip-card-tick {
+  font-size: 14px; color: var(--accent);
+  opacity: 0; transition: opacity 0.2s; flex-shrink: 0;
+}
+.equip-card:has(input:checked) .equip-card-tick { opacity: 1; }
+
 /* ── RESPONSIVE ── */
 @media (max-width: 640px) {
   main { padding: 1.5rem 1rem 3rem; }
@@ -861,25 +902,18 @@ tbody tr:hover {
         </div>
       </div>
 
-      <!-- EQUIPMENT DROPDOWN — hidden until name matched -->
+      <!-- EQUIPMENT CHECKBOXES — hidden until name matched -->
       <div class="field" id="equip-field" style="display:none;">
-        <label>Equipment to Return</label>
-        <select id="ret-equip" style="
-          background:var(--bg2); border:1px solid var(--accent);
-          box-shadow:0 0 12px var(--accent-dim);
-          color:var(--accent); font-family:var(--mono); font-size:13px;
-          border-radius:8px; padding:11px 14px; width:100%; outline:none;
-        ">
-          <option value="">— select equipment —</option>
-        </select>
+        <label>Select Items to Return <span style="opacity:0.5;font-size:9px;">(tick all you are returning)</span></label>
+        <div id="equip-checklist" style="display:flex; flex-direction:column; gap:8px; margin-top:4px;"></div>
         <div id="no-items-msg" style="
-          display:none; margin-top:8px; padding:10px 14px;
+          display:none; padding:10px 14px;
           background:var(--red-dim); border:1px solid rgba(255,77,106,0.2);
           border-radius:8px; font-family:var(--mono); font-size:12px; color:var(--red);
         ">// No active checkouts found for this name</div>
       </div>
 
-      <!-- CONDITION — hidden until equipment chosen -->
+      <!-- CONDITION — hidden until at least one item ticked -->
       <div class="field" id="cond-field" style="display:none;">
         <label>Condition</label>
         <div class="cond-group">
@@ -890,7 +924,7 @@ tbody tr:hover {
         <input type="hidden" id="ret-cond" value="Good">
       </div>
 
-      <!-- REMARKS — hidden until equipment chosen -->
+      <!-- REMARKS — hidden until at least one item ticked -->
       <div class="field" id="remarks-field" style="display:none;">
         <label>Remarks <span style="opacity:0.5;font-size:9px;">(optional)</span></label>
         <input type="text" id="ret-remarks" placeholder="Any observations or notes">
@@ -1067,28 +1101,40 @@ async function doCheckout(){
 
 /* ── RETURN — NAME LOOKUP ── */
 let nameTimer = null;
-let currentCheckouts = []; // stores fetched OUT records for current name
+let currentCheckouts = [];
+
+function onCheckboxChange(){
+  const anyChecked = document.querySelectorAll('.equip-checkbox:checked').length > 0;
+  document.getElementById('cond-field').style.display   = anyChecked ? 'block' : 'none';
+  document.getElementById('remarks-field').style.display = anyChecked ? 'block' : 'none';
+  document.getElementById('ret-btn').style.display       = anyChecked ? 'block' : 'none';
+  // update button label with count
+  const n = document.querySelectorAll('.equip-checkbox:checked').length;
+  const btn = document.getElementById('ret-btn');
+  if(btn) btn.textContent = `⬇  CONFIRM RETURN (${n} item${n>1?'s':''})`;
+}
 
 async function onNameInput(val) {
   const name = val.trim().toLowerCase();
-  const status = document.getElementById('lookup-status');
+  const status    = document.getElementById('lookup-status');
   const equipField = document.getElementById('equip-field');
-  const noItems = document.getElementById('no-items-msg');
-  const equipSel = document.getElementById('ret-equip');
+  const noItems   = document.getElementById('no-items-msg');
+  const checklist = document.getElementById('equip-checklist');
 
-  // Reset downstream fields
+  // Reset
   equipField.style.display = 'none';
-  document.getElementById('cond-field').style.display = 'none';
+  document.getElementById('cond-field').style.display    = 'none';
   document.getElementById('remarks-field').style.display = 'none';
-  document.getElementById('ret-btn').style.display = 'none';
+  document.getElementById('ret-btn').style.display       = 'none';
   noItems.style.display = 'none';
-  currentCheckouts = [];
+  checklist.innerHTML   = '';
+  currentCheckouts      = [];
 
-  if(name.length < 2) { status.textContent = ''; return; }
+  if(name.length < 2){ status.textContent = ''; return; }
 
-  // Debounce — wait 500ms after user stops typing
   clearTimeout(nameTimer);
-  status.textContent = 'searching...';
+  status.textContent   = 'searching...';
+  status.style.color   = 'var(--text3)';
 
   nameTimer = setTimeout(async () => {
     const { data, error } = await supabaseClient
@@ -1098,74 +1144,87 @@ async function onNameInput(val) {
       .eq('status', 'OUT')
       .order('id', { ascending: false });
 
-    if(error) { status.textContent = 'error'; return; }
+    if(error){ status.textContent = 'error'; return; }
 
     equipField.style.display = 'block';
 
-    if(!data || data.length === 0) {
+    if(!data || data.length === 0){
       status.textContent = '✕ no checkouts';
       status.style.color = 'var(--red)';
-      noItems.style.display = 'block';
-      equipSel.style.display = 'none';
+      noItems.style.display   = 'block';
+      checklist.innerHTML     = '';
       return;
     }
 
-    // Populate dropdown
     status.textContent = `✓ ${data.length} item${data.length>1?'s':''} found`;
     status.style.color = 'var(--green)';
-    currentCheckouts = data;
+    currentCheckouts   = data;
     noItems.style.display = 'none';
-    equipSel.style.display = 'block';
 
-    equipSel.innerHTML = '<option value="">— select equipment —</option>';
-    data.forEach(r => {
-      equipSel.innerHTML += `<option value="${r.id}">${r.equipment} (qty: ${r.qty}) — due ${r.return_date}</option>`;
-    });
-
-    // Show condition + remarks + button when equipment selected
-    equipSel.onchange = () => {
-      const chosen = equipSel.value;
-      const show = chosen !== '';
-      document.getElementById('cond-field').style.display = show ? 'block' : 'none';
-      document.getElementById('remarks-field').style.display = show ? 'block' : 'none';
-      document.getElementById('ret-btn').style.display = show ? 'block' : 'none';
-    };
+    // Build checkbox cards
+    checklist.innerHTML = data.map(r => `
+      <label class="equip-card" for="chk-${r.id}">
+        <input type="checkbox" class="equip-checkbox" id="chk-${r.id}" value="${r.id}" onchange="onCheckboxChange()">
+        <div class="equip-card-body">
+          <div class="equip-card-name">${r.equipment}</div>
+          <div class="equip-card-meta">
+            <span>QTY: ${r.qty}</span>
+            <span>DUE: ${r.return_date}</span>
+            ${r.notes ? `<span>NOTE: ${r.notes}</span>` : ''}
+          </div>
+        </div>
+        <div class="equip-card-tick">✓</div>
+      </label>
+    `).join('');
 
   }, 500);
 }
 
-/* ── RETURN — SUBMIT ── */
+/* ── RETURN — SUBMIT (multi) ── */
 async function doReturn(){
-  const recordId = document.getElementById('ret-equip').value;
-  const cond     = document.getElementById('ret-cond').value;
-  const remarks  = document.getElementById('ret-remarks').value.trim();
+  const checked = [...document.querySelectorAll('.equip-checkbox:checked')];
+  if(checked.length === 0){ showMsg('ret-msg','Please select at least one item to return.','error'); return; }
 
-  if(!recordId){ showMsg('ret-msg','Please select equipment to return.','error'); return; }
+  const cond    = document.getElementById('ret-cond').value;
+  const remarks = document.getElementById('ret-remarks').value.trim();
 
-  const record = currentCheckouts.find(r => String(r.id) === String(recordId));
+  const btn = document.getElementById('ret-btn');
+  btn.textContent = '⏳  Saving...';
+  btn.disabled = true;
 
-  const { error } = await supabaseClient.from('inventory_logs').update({
-    status: 'RETURNED',
-    notes: (record?.notes || '') + ' | Returned Condition: ' + cond + (remarks ? ' | ' + remarks : '')
-  }).eq('id', recordId);
+  let failed = 0;
+  for(const cb of checked){
+    const record = currentCheckouts.find(r => String(r.id) === cb.value);
+    const { error } = await supabaseClient.from('inventory_logs').update({
+      status: 'RETURNED',
+      notes: (record?.notes || '') + ' | Condition: ' + cond + (remarks ? ' | ' + remarks : '')
+    }).eq('id', cb.value);
+    if(error){ console.error(error); failed++; }
+  }
 
-  if(error){ console.error(error); showMsg('ret-msg','Return update failed.','error'); return; }
+  btn.disabled = false;
 
-  // Reset form
-  document.getElementById('ret-name').value = '';
-  document.getElementById('ret-equip').innerHTML = '<option value="">— select equipment —</option>';
-  document.getElementById('ret-remarks').value = '';
-  document.getElementById('ret-cond').value = 'Good';
-  selectCond(document.querySelector('.cond-btn'), 'Good');
+  if(failed > 0){
+    showMsg('ret-msg', `${failed} item(s) failed to update. Try again.`, 'error');
+    btn.textContent = `⬇  CONFIRM RETURN`;
+    return;
+  }
+
+  // Full reset
+  document.getElementById('ret-name').value          = '';
+  document.getElementById('ret-remarks').value       = '';
+  document.getElementById('ret-cond').value          = 'Good';
   document.getElementById('lookup-status').textContent = '';
-  document.getElementById('equip-field').style.display = 'none';
-  document.getElementById('cond-field').style.display = 'none';
-  document.getElementById('remarks-field').style.display = 'none';
-  document.getElementById('ret-btn').style.display = 'none';
+  document.getElementById('equip-checklist').innerHTML = '';
+  document.getElementById('equip-field').style.display    = 'none';
+  document.getElementById('cond-field').style.display     = 'none';
+  document.getElementById('remarks-field').style.display  = 'none';
+  document.getElementById('ret-btn').style.display        = 'none';
+  selectCond(document.querySelector('.cond-btn'), 'Good');
   currentCheckouts = [];
 
   if(typeof renderLog === 'function') renderLog();
-  showMsg('ret-msg', 'Equipment marked as RETURNED successfully.', 'success');
+  showMsg('ret-msg', `${checked.length} item${checked.length>1?'s':''} marked as RETURNED.`, 'success');
 }
 
 /* ── ADMIN LOGIN ── */

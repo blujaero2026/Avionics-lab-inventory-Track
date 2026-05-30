@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AVIONICS — Lab Inventory System</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -1048,11 +1047,23 @@ function updateClock(){
 updateClock();
 setInterval(updateClock, 1000);
 
-/* ── SUPABASE ── */
-const SUPABASE_URL = 'https://mjlehoqvstmajhtdzfpx.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_80lotbpTDm6fSESJ5ipYrQ_AAzhrqAk';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+/* ── API CONFIG ── */
+const API = 'https://dry-shadow-eeec.rahul-das.workers.dev';
 const ADMIN_PASSWORD = 'bluj12';
+
+async function apiPost(path, body){
+  const res = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+async function apiGet(path){
+  const res = await fetch(API + path);
+  return res.json();
+}
 
 /* ── CONDITION SELECT ── */
 function selectCond(btn, val){
@@ -1075,28 +1086,30 @@ function showMsg(id, text, type){
 
 /* ── CHECKOUT ── */
 async function doCheckout(){
-  const name      = document.getElementById('co-name').value.trim().toLowerCase();
-  const equip     = document.getElementById('co-equip').value.trim().toLowerCase();
-  const qty       = document.getElementById('co-qty').value;
-  const returnDate= document.getElementById('co-return').value;
-  const notes     = document.getElementById('co-notes').value.trim().toLowerCase();
+  const name       = document.getElementById('co-name').value.trim().toLowerCase();
+  const equip      = document.getElementById('co-equip').value.trim().toLowerCase();
+  const qty        = document.getElementById('co-qty').value;
+  const returnDate = document.getElementById('co-return').value;
+  const notes      = document.getElementById('co-notes').value.trim().toLowerCase();
 
   if(!name || !equip || !returnDate){
     showMsg('co-msg','Please complete all required fields.','error');
     return;
   }
 
-  const { error } = await supabaseClient.from('inventory_logs').insert([{
-    employee: name, equipment: equip,
-    qty: parseInt(qty), return_date: returnDate,
-    notes: notes, status: 'OUT'
-  }]);
-
-  if(error){ console.error(error); showMsg('co-msg','Cloud save failed. Try again.','error'); return; }
-
-  ['co-name','co-equip','co-notes','co-return'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('co-qty').value=1;
-  showMsg('co-msg','Equipment checked out successfully.','success');
+  try {
+    const res = await apiPost('/checkout', {
+      employee: name, equipment: equip,
+      qty: parseInt(qty), return_date: returnDate, notes
+    });
+    if(res.error) throw new Error(res.error);
+    ['co-name','co-equip','co-notes','co-return'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('co-qty').value = 1;
+    showMsg('co-msg','Equipment checked out successfully.','success');
+  } catch(e) {
+    console.error(e);
+    showMsg('co-msg','Save failed. Try again.','error');
+  }
 }
 
 /* ── RETURN — NAME LOOKUP ── */
@@ -1104,24 +1117,21 @@ let nameTimer = null;
 let currentCheckouts = [];
 
 function onCheckboxChange(){
-  const anyChecked = document.querySelectorAll('.equip-checkbox:checked').length > 0;
-  document.getElementById('cond-field').style.display   = anyChecked ? 'block' : 'none';
-  document.getElementById('remarks-field').style.display = anyChecked ? 'block' : 'none';
-  document.getElementById('ret-btn').style.display       = anyChecked ? 'block' : 'none';
-  // update button label with count
   const n = document.querySelectorAll('.equip-checkbox:checked').length;
+  document.getElementById('cond-field').style.display    = n > 0 ? 'block' : 'none';
+  document.getElementById('remarks-field').style.display = n > 0 ? 'block' : 'none';
+  document.getElementById('ret-btn').style.display       = n > 0 ? 'block' : 'none';
   const btn = document.getElementById('ret-btn');
   if(btn) btn.textContent = `⬇  CONFIRM RETURN (${n} item${n>1?'s':''})`;
 }
 
 async function onNameInput(val) {
   const name = val.trim().toLowerCase();
-  const status    = document.getElementById('lookup-status');
+  const status     = document.getElementById('lookup-status');
   const equipField = document.getElementById('equip-field');
-  const noItems   = document.getElementById('no-items-msg');
-  const checklist = document.getElementById('equip-checklist');
+  const noItems    = document.getElementById('no-items-msg');
+  const checklist  = document.getElementById('equip-checklist');
 
-  // Reset
   equipField.style.display = 'none';
   document.getElementById('cond-field').style.display    = 'none';
   document.getElementById('remarks-field').style.display = 'none';
@@ -1133,104 +1143,91 @@ async function onNameInput(val) {
   if(name.length < 2){ status.textContent = ''; return; }
 
   clearTimeout(nameTimer);
-  status.textContent   = 'searching...';
-  status.style.color   = 'var(--text3)';
+  status.textContent = 'searching...';
+  status.style.color = 'var(--text3)';
 
   nameTimer = setTimeout(async () => {
-    const { data, error } = await supabaseClient
-      .from('inventory_logs')
-      .select('*')
-      .ilike('employee', `%${name}%`)
-      .eq('status', 'OUT')
-      .order('id', { ascending: false });
+    try {
+      const res = await apiPost('/lookup', { name });
+      const data = res.rows || [];
 
-    if(error){ status.textContent = 'error'; return; }
+      equipField.style.display = 'block';
 
-    equipField.style.display = 'block';
+      if(data.length === 0){
+        status.textContent = '✕ no checkouts';
+        status.style.color = 'var(--red)';
+        noItems.style.display = 'block';
+        return;
+      }
 
-    if(!data || data.length === 0){
-      status.textContent = '✕ no checkouts';
-      status.style.color = 'var(--red)';
-      noItems.style.display   = 'block';
-      checklist.innerHTML     = '';
-      return;
-    }
+      status.textContent = `✓ ${data.length} item${data.length>1?'s':''} found`;
+      status.style.color = 'var(--green)';
+      currentCheckouts   = data;
+      noItems.style.display = 'none';
 
-    status.textContent = `✓ ${data.length} item${data.length>1?'s':''} found`;
-    status.style.color = 'var(--green)';
-    currentCheckouts   = data;
-    noItems.style.display = 'none';
-
-    // Build checkbox cards
-    checklist.innerHTML = data.map(r => `
-      <label class="equip-card" for="chk-${r.id}">
-        <input type="checkbox" class="equip-checkbox" id="chk-${r.id}" value="${r.id}" onchange="onCheckboxChange()">
-        <div class="equip-card-body">
-          <div class="equip-card-name">${r.equipment}</div>
-          <div class="equip-card-meta">
-            <span>QTY: ${r.qty}</span>
-            <span>DUE: ${r.return_date}</span>
-            ${r.notes ? `<span>NOTE: ${r.notes}</span>` : ''}
+      checklist.innerHTML = data.map(r => `
+        <label class="equip-card" for="chk-${r.id}">
+          <input type="checkbox" class="equip-checkbox" id="chk-${r.id}" value="${r.id}" onchange="onCheckboxChange()">
+          <div class="equip-card-body">
+            <div class="equip-card-name">${r.equipment}</div>
+            <div class="equip-card-meta">
+              <span>QTY: ${r.qty}</span>
+              <span>DUE: ${r.return_date}</span>
+              ${r.notes ? `<span>NOTE: ${r.notes}</span>` : ''}
+            </div>
           </div>
-        </div>
-        <div class="equip-card-tick">✓</div>
-      </label>
-    `).join('');
+          <div class="equip-card-tick">✓</div>
+        </label>
+      `).join('');
 
+    } catch(e) {
+      status.textContent = 'error';
+      console.error(e);
+    }
   }, 500);
 }
 
-/* ── RETURN — SUBMIT (multi) ── */
+/* ── RETURN — SUBMIT ── */
 async function doReturn(){
   const checked = [...document.querySelectorAll('.equip-checkbox:checked')];
-  if(checked.length === 0){ showMsg('ret-msg','Please select at least one item to return.','error'); return; }
+  if(checked.length === 0){ showMsg('ret-msg','Please select at least one item.','error'); return; }
 
   const cond    = document.getElementById('ret-cond').value;
   const remarks = document.getElementById('ret-remarks').value.trim();
-
-  const btn = document.getElementById('ret-btn');
+  const btn     = document.getElementById('ret-btn');
   btn.textContent = '⏳  Saving...';
   btn.disabled = true;
 
-  let failed = 0;
-  for(const cb of checked){
-    const record = currentCheckouts.find(r => String(r.id) === cb.value);
-    const { error } = await supabaseClient.from('inventory_logs').update({
-      status: 'RETURNED',
-      notes: (record?.notes || '') + ' | Condition: ' + cond + (remarks ? ' | ' + remarks : '')
-    }).eq('id', cb.value);
-    if(error){ console.error(error); failed++; }
-  }
+  try {
+    const ids = checked.map(cb => parseInt(cb.value));
+    const res = await apiPost('/return', { ids, condition: cond, remarks });
+    if(res.error) throw new Error(res.error);
 
-  btn.disabled = false;
-
-  if(failed > 0){
-    showMsg('ret-msg', `${failed} item(s) failed to update. Try again.`, 'error');
+    document.getElementById('ret-name').value            = '';
+    document.getElementById('ret-remarks').value         = '';
+    document.getElementById('ret-cond').value            = 'Good';
+    document.getElementById('lookup-status').textContent = '';
+    document.getElementById('equip-checklist').innerHTML = '';
+    document.getElementById('equip-field').style.display    = 'none';
+    document.getElementById('cond-field').style.display     = 'none';
+    document.getElementById('remarks-field').style.display  = 'none';
+    document.getElementById('ret-btn').style.display        = 'none';
+    selectCond(document.querySelector('.cond-btn'), 'Good');
+    currentCheckouts = [];
+    renderLog();
+    showMsg('ret-msg', `${checked.length} item${checked.length>1?'s':''} marked as RETURNED.`, 'success');
+  } catch(e) {
+    console.error(e);
+    showMsg('ret-msg','Return failed. Try again.','error');
     btn.textContent = `⬇  CONFIRM RETURN`;
-    return;
   }
-
-  // Full reset
-  document.getElementById('ret-name').value          = '';
-  document.getElementById('ret-remarks').value       = '';
-  document.getElementById('ret-cond').value          = 'Good';
-  document.getElementById('lookup-status').textContent = '';
-  document.getElementById('equip-checklist').innerHTML = '';
-  document.getElementById('equip-field').style.display    = 'none';
-  document.getElementById('cond-field').style.display     = 'none';
-  document.getElementById('remarks-field').style.display  = 'none';
-  document.getElementById('ret-btn').style.display        = 'none';
-  selectCond(document.querySelector('.cond-btn'), 'Good');
-  currentCheckouts = [];
-
-  if(typeof renderLog === 'function') renderLog();
-  showMsg('ret-msg', `${checked.length} item${checked.length>1?'s':''} marked as RETURNED.`, 'success');
+  btn.disabled = false;
 }
 
 /* ── ADMIN LOGIN ── */
 function adminLogin(){
   const pass = document.getElementById('admin-pass').value;
-  if(pass!==ADMIN_PASSWORD){ showMsg('admin-msg','Incorrect password.','error'); return; }
+  if(pass !== ADMIN_PASSWORD){ showMsg('admin-msg','Incorrect password.','error'); return; }
   document.getElementById('admin-login').classList.add('hidden');
   document.getElementById('admin-panel').classList.remove('hidden');
   renderLog();
@@ -1239,59 +1236,64 @@ function adminLogin(){
 /* ── DELETE ── */
 async function deleteEntry(id){
   if(!confirm('Delete this entry permanently?')) return;
-  const { error } = await supabaseClient.from('inventory_logs').delete().eq('id',id);
-  if(error){ console.error(error); return; }
-  renderLog();
+  try {
+    await apiPost('/delete', { id });
+    renderLog();
+  } catch(e) { console.error(e); }
 }
 
 /* ── EXPORT ── */
 async function exportCSV(){
-  const { data, error } = await supabaseClient.from('inventory_logs').select('*').order('id',{ascending:false});
-  if(error){ console.error(error); return; }
-  const headers = ['Employee','Equipment','Qty','Status','Return Date','Notes'];
-  const rows = data.map(r=>[r.employee,r.equipment,r.qty,r.status,r.return_date,r.notes||''].join(','));
-  const csv = [headers.join(','),...rows].join('\n');
-  const blob = new Blob([csv],{type:'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href=url; a.download='Bluj_Inventory_Log.csv'; a.click();
-  URL.revokeObjectURL(url);
+  try {
+    const res = await apiGet('/logs');
+    const data = res.rows || [];
+    const headers = ['Employee','Equipment','Qty','Status','Return Date','Notes'];
+    const rows = data.map(r=>[r.employee,r.equipment,r.qty,r.status,r.return_date,r.notes||''].join(','));
+    const csv = [headers.join(','),...rows].join('\n');
+    const blob = new Blob([csv],{type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download='Bluj_Inventory_Log.csv'; a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) { console.error(e); }
 }
 
 /* ── RENDER LOG ── */
 async function renderLog(){
-  const { data, error } = await supabaseClient.from('inventory_logs').select('*').order('id',{ascending:false});
-  if(error){ console.error(error); return; }
+  try {
+    const res  = await apiGet('/logs');
+    const data = res.rows || [];
 
-  document.getElementById('s-total').textContent = data.length;
-  document.getElementById('s-out').textContent = data.filter(d=>d.status==='OUT').length;
-  document.getElementById('s-ret').textContent = data.filter(d=>d.status==='RETURNED').length;
+    document.getElementById('s-total').textContent = data.length;
+    document.getElementById('s-out').textContent   = data.filter(d=>d.status==='OUT').length;
+    document.getElementById('s-ret').textContent   = data.filter(d=>d.status==='RETURNED').length;
 
-  const body = document.getElementById('log-body');
-  if(!data.length){
-    body.innerHTML = '<tr><td colspan="7" class="empty-state">// No records found</td></tr>';
-    return;
-  }
+    const body = document.getElementById('log-body');
+    if(!data.length){
+      body.innerHTML = '<tr><td colspan="7" class="empty-state">// No records found</td></tr>';
+      return;
+    }
 
-  body.innerHTML = data.map(r=>`
-    <tr>
-      <td>${r.employee||'-'}</td>
-      <td>${r.equipment||'-'}</td>
-      <td>${r.qty||'-'}</td>
-      <td>${r.status==='OUT'
-        ? '<span class="badge badge-out">OUT</span>'
-        : '<span class="badge badge-ret">RETURNED</span>'}</td>
-      <td style="font-family:var(--mono);font-size:11px;color:var(--text2);">${r.created_at?new Date(r.created_at).toLocaleDateString('en-IN'):'-'}</td>
-      <td style="font-family:var(--mono);font-size:11px;">${r.return_date||'-'}</td>
-      <td><button class="del-btn" onclick="deleteEntry(${r.id})">Delete</button></td>
-    </tr>
-  `).join('');
+    body.innerHTML = data.map(r=>`
+      <tr>
+        <td>${r.employee||'-'}</td>
+        <td>${r.equipment||'-'}</td>
+        <td>${r.qty||'-'}</td>
+        <td>${r.status==='OUT'
+          ? '<span class="badge badge-out">OUT</span>'
+          : '<span class="badge badge-ret">RETURNED</span>'}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--text2);">${r.created_at?new Date(r.created_at).toLocaleDateString('en-IN'):'-'}</td>
+        <td style="font-family:var(--mono);font-size:11px;">${r.return_date||'-'}</td>
+        <td><button class="del-btn" onclick="deleteEntry(${r.id})">Delete</button></td>
+      </tr>
+    `).join('');
+  } catch(e) { console.error(e); }
 }
 
 /* ── TABS ── */
 window.onload = function(){
   const sections = document.querySelectorAll('.section');
-  const tabs = document.querySelectorAll('.tab');
+  const tabs     = document.querySelectorAll('.tab');
 
   function openTab(id){
     sections.forEach(s=>s.classList.remove('active'));
